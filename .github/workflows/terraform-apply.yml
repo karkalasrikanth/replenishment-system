@@ -1,4 +1,4 @@
-name: Terraform Apply
+name: Terraform Pipeline
 
 on:
   workflow_dispatch:
@@ -6,21 +6,17 @@ on:
       environment:
         description: "Target environment"
         required: true
-        default: dev
+        default: aws-cloud
         type: choice
         options:
-          - dev
-          - stage
-          - prod
-  push:
-    branches: [ "main" ]
+          - aws-cloud
 
 jobs:
-  terraform:
+  plan:
     runs-on: ubuntu-latest
 
     permissions:
-      id-token: write   # REQUIRED for OIDC
+      id-token: write
       contents: read
 
     steps:
@@ -40,7 +36,44 @@ jobs:
         run: terraform init
 
       - name: Plan
-        run: terraform plan
+        run: terraform plan -out=tfplan
+
+      - name: Upload Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: tfplan
+
+
+  apply:
+    needs: plan
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Init
+        run: terraform init
 
       - name: Apply
-        run: terraform apply -auto-approve
+        run: terraform apply tfplan
