@@ -1,51 +1,96 @@
-resource "aws_ecs_cluster" "app_cluster" {
-  name = "replenishment-cluster"
+resource "aws_ecs_cluster" "finance_cluster" {
+  name = "finance-cluster"
 }
 
-resource "aws_ecs_task_definition" "service" {
-  family                   = "replenishment-service"
+resource "aws_ecs_task_definition" "finance_service" {
+  family                   = "finance-service"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
   cpu                      = "512"
   memory                   = "1024"
-  execution_role_arn       = ""
+  execution_role_arn       = var.execution_role_arn
   container_definitions = jsonencode([
     {
-      name  = "backend"
-      image = "your-docker-image:latest"
+      name  = "finance-service"
+      image = var.backend_image
 
       portMappings = [
         {
-          containerPort = var.container_port
+          containerPort = 8080
         }
       ]
       environment = [
         {
           name      = "DB_URL"
-          valueFrom = var.db_host_name
+          value = var.db_host_name
         },
         {
           name      = "DB_USERNAME"
-          valueFrom = var.db_username
+          value = var.db_username
         },
         {
           name      = "DB_PASSWORD"
-          valueFrom = var.db_password
+          value = var.db_password
         }
       ]
     }
   ])
 }
 
-resource "aws_ecs_service" "backend_service" {
-  name            = "replenishment-service"
-  cluster         = aws_ecs_cluster.app_cluster.id
-  task_definition = aws_ecs_task_definition.service.arn
+resource "aws_ecs_service" "finance_service" {
+  name            = "finance-service"
+  cluster         = aws_ecs_cluster.finance_cluster.arn
+  task_definition = aws_ecs_task_definition.finance_service.arn
   launch_type     = "FARGATE"
   desired_count   = var.desired_count
   network_configuration {
     subnets          = [var.subnet_id]
     security_groups  = [var.security_group_id]
     assign_public_ip = true
+  }
+
+  load_balancer {
+    target_group_arn = var.finance_api_tg_arn
+    container_name   = "finance-service"
+    container_port   = 8080
+  }
+}
+
+resource "aws_ecs_task_definition" "finance_ui" {
+  family                   = "finance-ui"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = var.execution_role_arn
+  container_definitions = jsonencode([
+    {
+      name  = "finance-ui"
+      image = var.ui_image
+
+      portMappings = [
+        {
+          containerPort = 80
+        }
+      ]
+    }
+  ])
+}
+
+resource "aws_ecs_service" "finance_ui" {
+  name            = "finance-ui"
+  cluster         = aws_ecs_cluster.finance_cluster.arn
+  task_definition = aws_ecs_task_definition.finance_ui.arn
+  launch_type     = "FARGATE"
+  desired_count   = var.desired_count
+  network_configuration {
+    subnets          = [var.subnet_id]
+    security_groups  = [var.security_group_id]
+    assign_public_ip = true
+  }
+  load_balancer {
+    target_group_arn = var.finance_ui_tg_arn
+    container_name   = "finance-ui"
+    container_port   = 80
   }
 }

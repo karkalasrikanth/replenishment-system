@@ -22,7 +22,7 @@ jobs:
 
     env:
       AWS_REGION: us-east-1
-      ECR_REPO: finance-ui
+      ECR_REPO: finance-app
       ECS_CLUSTER: finance-cluster
       ECS_SERVICE: finance-ui
       TASK_FAMILY: finance-ui-task
@@ -51,7 +51,7 @@ jobs:
         env:
           AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
         run: |
-          IMAGE_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:$IMAGE_TAG
+          IMAGE_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:ui-$IMAGE_TAG
           docker build -t $IMAGE_URI .
           docker push $IMAGE_URI
           echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
