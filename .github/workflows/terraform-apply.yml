@@ -11,13 +11,32 @@ on:
         options:
           - aws-cloud
 
+      action:
+        description: "Terraform action"
+        required: true
+        type: choice
+        default: plan
+        options:
+          - plan
+          - apply
+          - destroy
+          - validate
+          - refresh
+          - state-list
+          - output
+          - custom
+
+      custom_args:
+        description: "Custom terraform args (used only when action=custom)"
+        required: false
+
 jobs:
-  plan:
+  terraform:
     runs-on: ubuntu-latest
+
     defaults:
       run:
         working-directory: infra
-    environment: ${{ github.event.inputs.environment }}
 
     permissions:
       id-token: write
@@ -36,57 +55,69 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      - name: Init
+      - name: Terraform Init
         run: terraform init
 
+      # -------------------------
+      # PLAN
+      # -------------------------
       - name: Plan
-        env:
-          TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+        if: ${{ github.event.inputs.action == 'plan' }}
         run: |
           terraform plan \
-            -var-file=tfvars/${{ github.event.inputs.environment }}.tfvars \
-            -out=tfplan
+            -var-file=tfvars/${{ github.event.inputs.environment }}.tfvars
 
-      - name: Upload Plan
-        uses: actions/upload-artifact@v4
-        with:
-          name: tfplan
-          path: infra/tfplan
-
-
-  apply:
-    needs: plan
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: infra
-    environment: ${{ github.event.inputs.environment }}
-
-    permissions:
-      id-token: write
-      contents: read
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download Plan
-        uses: actions/download-artifact@v4
-        with:
-          name: tfplan
-          path: infra
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: us-east-1
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-
-      - name: Init
-        run: terraform init
-
+      # -------------------------
+      # APPLY
+      # -------------------------
       - name: Apply
-        run: terraform apply tfplan
+        if: ${{ github.event.inputs.action == 'apply' }}
+        run: |
+          terraform apply -auto-approve \
+            -var-file=tfvars/${{ github.event.inputs.environment }}.tfvars
+
+      # -------------------------
+      # DESTROY
+      # -------------------------
+      - name: Destroy
+        if: ${{ github.event.inputs.action == 'destroy' }}
+        run: |
+          terraform destroy -auto-approve \
+            -var-file=tfvars/${{ github.event.inputs.environment }}.tfvars
+
+      # -------------------------
+      # VALIDATE
+      # -------------------------
+      - name: Validate
+        if: ${{ github.event.inputs.action == 'validate' }}
+        run: terraform validate
+
+      # -------------------------
+      # REFRESH
+      # -------------------------
+      - name: Refresh
+        if: ${{ github.event.inputs.action == 'refresh' }}
+        run: |
+          terraform refresh \
+            -var-file=tfvars/${{ github.event.inputs.environment }}.tfvars
+
+      # -------------------------
+      # STATE LIST (IMPORTANT)
+      # -------------------------
+      - name: State List
+        if: ${{ github.event.inputs.action == 'state-list' }}
+        run: terraform state list
+
+      # -------------------------
+      # OUTPUT
+      # -------------------------
+      - name: Terraform Output
+        if: ${{ github.event.inputs.action == 'output' }}
+        run: terraform output
+
+      # -------------------------
+      # CUSTOM COMMAND MODE
+      # -------------------------
+      - name: Custom Terraform Command
+        if: ${{ github.event.inputs.action == 'custom' }}
+        run: terraform ${{ github.event.inputs.custom_args }}
