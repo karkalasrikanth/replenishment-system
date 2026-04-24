@@ -21,15 +21,15 @@ resource "aws_ecs_task_definition" "finance_service" {
       ]
       environment = [
         {
-          name      = "DB_URL"
+          name  = "DB_HOSTNAME"
           value = var.db_host_name
         },
         {
-          name      = "DB_USERNAME"
+          name  = "DB_USERNAME"
           value = var.db_username
         },
         {
-          name      = "DB_PASSWORD"
+          name  = "DB_PASSWORD"
           value = var.db_password
         }
       ]
@@ -95,15 +95,15 @@ resource "aws_ecs_service" "finance_ui" {
   }
 }
 
-resource "aws_ecs_service" "mcp_service" {
+/*resource "aws_ecs_service" "mcp_service" {
   name            = "mcp-ai-service"
   cluster = aws_ecs_cluster.finance_cluster.id
   launch_type = "FARGATE"
-  task_definition = aws_ecs_task_definition
+  task_definition = aws_ecs_task_definition.
 
   network_configuration {
     subnets = [var.subnet_id]
     security_groups = [var.security_group_id]
   }
 
-}
+}*/
