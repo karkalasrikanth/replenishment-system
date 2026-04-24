@@ -1,0 +1,85 @@
+name: Terraform Utilities
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: aws-cloud
+        type: choice
+        options:
+          - aws-cloud
+      action:
+        description: "Terraform action"
+        required: true
+        type: choice
+        options:
+          - validate
+          - refresh
+          - state-list
+          - output
+          - custom
+      custom_args:
+        description: "Custom terraform args (only for custom action)"
+        required: false
+        type: string
+
+env:
+  region: us-east-2
+
+concurrency:
+  group: terraform-utils-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  utility:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    defaults:
+      run:
+        working-directory: infra
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.region }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Run Selected Action
+        run: |
+          case "${{ inputs.action }}" in
+            validate)
+              terraform validate
+              ;;
+            refresh)
+              terraform refresh -var-file=tfvars/${{ inputs.environment }}.tfvars
+              ;;
+            state-list)
+              terraform state list -lock=false
+              ;;
+            output)
+              terraform output -lock=false
+              ;;
+            custom)
+              if [ -z "${{ inputs.custom_args }}" ]; then
+                echo "Error: custom_args is required when using the custom action."
+                exit 1
+              fi
+              terraform ${{ inputs.custom_args }}
+              ;;
+          esac

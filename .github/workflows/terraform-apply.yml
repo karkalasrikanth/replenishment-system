@@ -1,4 +1,4 @@
-name: Terraform Pipeline
+name: Terraform Plan & Apply
 
 on:
   workflow_dispatch:
@@ -10,40 +10,33 @@ on:
         type: choice
         options:
           - aws-cloud
-
       action:
-        description: "Terraform action"
+        description: "Run mode"
         required: true
         type: choice
         default: plan
         options:
           - plan
           - apply
-          - destroy
-          - validate
-          - refresh
-          - state-list
-          - output
-          - custom
 
-      custom_args:
-        description: "Custom terraform args (used only when action=custom)"
-        required: false
 env:
   region: us-east-2
+
+concurrency:
+  group: terraform-${{ inputs.environment }}
+  cancel-in-progress: false
+
 jobs:
-  terraform:
+  plan:
+    name: Terraform Plan
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
-
     defaults:
       run:
         working-directory: infra
-
     permissions:
       id-token: write
       contents: read
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -60,66 +53,54 @@ jobs:
       - name: Terraform Init
         run: terraform init
 
-      # -------------------------
-      # PLAN
-      # -------------------------
-      - name: Plan
-        if: ${{ github.event.inputs.action == 'plan' }}
-        run: |
-          terraform plan \
-            -var-file=tfvars/${{ github.event.inputs.environment }}.tfvars
-
-      # -------------------------
-      # APPLY
-      # -------------------------
-      - name: Apply
-        if: ${{ github.event.inputs.action == 'apply' }}
-        run: |
-          terraform apply -auto-approve \
-            -var-file=tfvars/${{ github.event.inputs.environment }}.tfvars
-
-      # -------------------------
-      # DESTROY
-      # -------------------------
-      - name: Destroy
-        if: ${{ github.event.inputs.action == 'destroy' }}
-        run: |
-          terraform destroy -auto-approve \
-            -var-file=tfvars/${{ github.event.inputs.environment }}.tfvars
-
-      # -------------------------
-      # VALIDATE
-      # -------------------------
-      - name: Validate
-        if: ${{ github.event.inputs.action == 'validate' }}
+      - name: Terraform Validate
         run: terraform validate
 
-      # -------------------------
-      # REFRESH
-      # -------------------------
-      - name: Refresh
-        if: ${{ github.event.inputs.action == 'refresh' }}
+      - name: Terraform Plan
         run: |
-          terraform refresh \
-            -var-file=tfvars/${{ github.event.inputs.environment }}.tfvars
+          terraform plan \
+            -out=tfplan \
+            -var-file=tfvars/${{ inputs.environment }}.tfvars
 
-      # -------------------------
-      # STATE LIST (IMPORTANT)
-      # -------------------------
-      - name: State List
-        if: ${{ github.event.inputs.action == 'state-list' }}
-        run: terraform state list
+      - name: Upload Plan Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ inputs.environment }}
+          path: infra/tfplan
 
-      # -------------------------
-      # OUTPUT
-      # -------------------------
-      - name: Terraform Output
-        if: ${{ github.event.inputs.action == 'output' }}
-        run: terraform output
+  apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    needs: plan
+    if: ${{ inputs.action == 'apply' }}
+    environment: ${{ inputs.environment }}
+    defaults:
+      run:
+        working-directory: infra
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      # -------------------------
-      # CUSTOM COMMAND MODE
-      # -------------------------
-      - name: Custom Terraform Command
-        if: ${{ github.event.inputs.action == 'custom' }}
-        run: terraform ${{ github.event.inputs.custom_args }}
+      - name: Download Plan Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-${{ inputs.environment }}
+          path: infra
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.region }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Apply
+        run: terraform apply tfplan
