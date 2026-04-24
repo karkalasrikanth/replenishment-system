@@ -13,10 +13,14 @@ module "ecr" {
 }
 
 module "load-balancer" {
-  source        = "./modules/load-balancer"
-  vpc_id        = module.vpc.vpc_id
-  alb_sg        = module.vpc.alb_sg
-  public_subnet = module.vpc.public_subnet_id
+  source = "./modules/load-balancer"
+  vpc_id = module.vpc.vpc_id
+  alb_sg = module.vpc.alb_sg
+  public_subnets = [
+    module.vpc.public_subnet_1_id,
+    module.vpc.public_subnet_2_id
+
+  ]
 }
 module "ecs" {
   source             = "./modules/ecs"

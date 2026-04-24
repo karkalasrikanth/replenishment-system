@@ -8,7 +8,9 @@ resource "aws_vpc" "main" {
   }
 }
 
-# AZ 1 Public Subnet
+# -------------------------
+# PUBLIC SUBNETS
+# -------------------------
 resource "aws_subnet" "public_subnet_1" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.1.0/24"
@@ -20,7 +22,6 @@ resource "aws_subnet" "public_subnet_1" {
   }
 }
 
-# AZ 2 Public Subnet
 resource "aws_subnet" "public_subnet_2" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.2.0/24"
@@ -32,47 +33,114 @@ resource "aws_subnet" "public_subnet_2" {
   }
 }
 
+# -------------------------
+# PRIVATE SUBNET
+# -------------------------
 resource "aws_subnet" "private_subnet" {
-  vpc_id     = aws_vpc.main.id
-  cidr_block = "10.0.3.0/24"
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = "10.0.3.0/24"
+  availability_zone = "us-east-2a"
 
   tags = {
     Name = "private-subnet"
   }
 }
 
+# -------------------------
+# INTERNET GATEWAY
+# -------------------------
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main.id
-}
-resource "aws_eip" "nat" {}
 
+  tags = {
+    Name = "replenishment-igw"
+  }
+}
+
+# -------------------------
+# EIP FOR NAT
+# -------------------------
+resource "aws_eip" "nat" {
+  domain = "vpc"
+}
+
+# -------------------------
+# NAT GATEWAY (PUBLIC SUBNET)
+# -------------------------
 resource "aws_nat_gateway" "nat" {
-  subnet_id     = aws_subnet.public_subnet.id
   allocation_id = aws_eip.nat.id
+  subnet_id     = aws_subnet.public_subnet_1.id
+
+  depends_on = [aws_internet_gateway.igw]
 }
 
+# -------------------------
+# PUBLIC ROUTE TABLE
+# -------------------------
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
+
   route {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.igw.id
   }
+
+  tags = {
+    Name = "public-rt"
+  }
 }
 
+# -------------------------
+# PRIVATE ROUTE TABLE
+# -------------------------
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
+
   route {
     cidr_block     = "0.0.0.0/0"
     nat_gateway_id = aws_nat_gateway.nat.id
   }
+
+  tags = {
+    Name = "private-rt"
+  }
 }
 
+# -------------------------
+# ROUTE ASSOCIATIONS
+# -------------------------
+resource "aws_route_table_association" "public_1" {
+  subnet_id      = aws_subnet.public_subnet_1.id
+  route_table_id = aws_route_table.public.id
+}
+
+resource "aws_route_table_association" "public_2" {
+  subnet_id      = aws_subnet.public_subnet_2.id
+  route_table_id = aws_route_table.public.id
+}
+
+resource "aws_route_table_association" "private" {
+  subnet_id      = aws_subnet.private_subnet.id
+  route_table_id = aws_route_table.private.id
+}
+
+# -------------------------
+# SECURITY GROUPS
+# -------------------------
 resource "aws_security_group" "alb_sg" {
   vpc_id = aws_vpc.main.id
+
   ingress {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
@@ -86,6 +154,13 @@ resource "aws_security_group" "ecs_sg" {
     protocol        = "tcp"
     security_groups = [aws_security_group.alb_sg.id]
   }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 
 resource "aws_security_group" "db_sg" {
@@ -97,27 +172,11 @@ resource "aws_security_group" "db_sg" {
     protocol        = "tcp"
     security_groups = [aws_security_group.ecs_sg.id]
   }
-}
 
-resource "aws_lb" "app_lb" {
-  name               = "replenishment-alb"
-  load_balancer_type = "application"
-  subnets            = [aws_subnet.public_subnet.id]
-  security_groups    = [aws_security_group.alb_sg.id]
-}
-
-resource "aws_lb_target_group" "alb_tg" {
-  port     = 8080
-  protocol = "HTTP"
-  vpc_id   = aws_vpc.main.id
-}
-
-resource "aws_lb_listener" "listener" {
-  load_balancer_arn = aws_lb.app_lb.arn
-  port              = 80
-  protocol          = "HTTP"
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.alb_tg.arn
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 }
