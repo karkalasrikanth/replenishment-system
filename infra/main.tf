@@ -32,3 +32,7 @@ module "ecs" {
   finance_api_tg_arn = module.load-balancer.finance_api_tg_arn
   finance_ui_tg_arn  = module.load-balancer.finance_ui_tg_arn
 }
+
+module "s3" {
+  source = "./modules/s3"
+}
