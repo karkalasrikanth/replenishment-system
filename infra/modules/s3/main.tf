@@ -1,11 +1,3 @@
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "6.17.0"
-    }
-  }
-}
 resource "aws_s3_bucket" "finance_ui" {
   bucket = "finance-ui"
 }
