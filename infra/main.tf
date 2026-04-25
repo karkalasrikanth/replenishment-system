@@ -36,3 +36,8 @@ module "ecs" {
 module "s3" {
   source = "./modules/s3"
 }
+
+import {
+  id = "finance-ui-552144477875"
+  to = module.s3.aws_s3_bucket.finance_ui
+}
