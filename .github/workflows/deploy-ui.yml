@@ -40,7 +40,7 @@ jobs:
         working-directory: finance-ui
 
       - name: Build Angular
-        run: npm run build --configuration production
+        run: npx ng build finance-ui --configuration=production
         working-directory: finance-ui
 
       - name: Sync to S3
