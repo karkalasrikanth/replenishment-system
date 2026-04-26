@@ -21,14 +21,14 @@ jobs:
 
     env:
       AWS_REGION: us-east-2
-      S3_BUCKET: finance-ui
+      S3_BUCKET: finance-ui-${{ secrets.AWS_ACCOUNT_ID }}
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.DEPLOY_ROLE_ARN }}
+          role-to-assume: ${{ secrets.DEPLOYER_UI_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - uses: actions/setup-node@v4
