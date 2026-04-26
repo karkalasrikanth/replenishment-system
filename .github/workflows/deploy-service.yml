@@ -10,14 +10,10 @@ on:
         type: choice
         options:
           - aws-cloud
+
 jobs:
   deploy-backend:
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
-
-    defaults:
-      run:
-        working-directory: finance-service
 
     permissions:
       id-token: write
@@ -44,13 +40,15 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - run: mvn clean package -DskipTests -B
+      - name: Build JAR
+        run: mvn clean package -DskipTests -B
 
-      - run: echo "IMAGE_TAG=${GITHUB_SHA}" >> $GITHUB_ENV
+      - name: Set image tag
+        run: echo "IMAGE_TAG=${GITHUB_SHA}" >> $GITHUB_ENV
 
       - uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build & Push
+      - name: Build and Push Docker Image
         env:
           AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
         run: |
@@ -59,30 +57,16 @@ jobs:
           docker push $IMAGE_URI
           echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
 
-      - run: |
-          aws ecs describe-task-definition \
-            --task-definition $TASK_FAMILY \
-            --query taskDefinition > task-def.json
-
-      - run: |
-          jq 'del(
-            .taskDefinitionArn,
-            .revision,
-            .status,
-            .requiresAttributes,
-            .compatibilities,
-            .registeredAt,
-            .registeredBy
-          )' task-def.json > clean-task-def.json
-
-      - id: render
+      - name: Render ECS Task Definition
+        id: render
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
-          task-definition: clean-task-def.json
+          task-definition: ${{ env.CONTAINER_NAME }}
           container-name: ${{ env.CONTAINER_NAME }}
           image: ${{ env.IMAGE_URI }}
 
-      - uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+      - name: Deploy to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
           task-definition: ${{ steps.render.outputs.task-definition }}
           service: ${{ env.ECS_SERVICE }}
