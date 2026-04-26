@@ -21,10 +21,6 @@ variable "db_password" {
 }
 variable "db_host_name" {}
 
-variable "execution_role_arn" {
-  default = ""
-}
-
 variable "backend_image" {
   default = "finance-app:latest"
 }
