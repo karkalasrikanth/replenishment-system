@@ -37,7 +37,7 @@ jobs:
       contents: read
 
     steps:
-      - name: Safety Check (MANDATORY)
+      - name: Safety Check
         run: |
           if [ "${{ inputs.confirm_destroy }}" != "destroy" ]; then
             echo "❌ Destroy not confirmed. Exiting."

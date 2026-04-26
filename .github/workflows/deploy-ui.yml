@@ -1,12 +1,15 @@
 name: Deploy UI
 
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
       environment:
+        description: "Target environment"
         required: true
-        type: string
-
+        default: aws-cloud
+        type: choice
+        options:
+          - aws-cloud
 jobs:
   deploy-ui:
     runs-on: ubuntu-latest
