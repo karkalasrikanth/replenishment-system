@@ -44,5 +44,6 @@ jobs:
         working-directory: finance-ui
 
       - name: Sync to S3
+        working-directory: finance-ui
         run: |
           aws s3 sync dist/finance-ui/browser/ s3://$S3_BUCKET --delete
