@@ -1,0 +1,75 @@
+name: Terraform Destroy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: aws-cloud
+        type: choice
+        options:
+          - aws-cloud
+
+      confirm_destroy:
+        description: "Type 'destroy' to confirm"
+        required: true
+        type: string
+
+env:
+  region: us-east-2
+
+concurrency:
+  group: terraform-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  destroy:
+    name: Terraform Destroy
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    defaults:
+      run:
+        working-directory: infra
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Safety Check (MANDATORY)
+        run: |
+          if [ "${{ inputs.confirm_destroy }}" != "destroy" ]; then
+            echo "❌ Destroy not confirmed. Exiting."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.INFRA_ROLE_ARN }}
+          aws-region: ${{ env.region }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan Destroy
+        env:
+          TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+        run: |
+          terraform plan -destroy \
+            -var-file=tfvars/${{ inputs.environment }}.tfvars \
+            -out=destroy.tfplan \
+            -input=false
+
+      - name: Apply Destroy Plan
+        run: terraform apply -auto-approve destroy.tfplan
