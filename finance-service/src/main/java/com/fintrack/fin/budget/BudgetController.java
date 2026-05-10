@@ -17,7 +17,9 @@ public class BudgetController {
     private final BudgetService budgetService;
 
     @GetMapping("/check")
-    public List<BudgetAlert> check(@RequestParam Long userId, @RequestParam int year, @RequestParam int month
+    public List<BudgetAlert> check(@RequestParam Long userId,
+                                   @RequestParam int year,
+                                   @RequestParam int month
     ) {
         return budgetService.checkBudget(userId, YearMonth.of(year, month));
     }

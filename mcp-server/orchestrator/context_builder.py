@@ -1,5 +1,5 @@
 from tools.budget_tool import get_budget_limits
-from tools.db_tool import fetch_transactions
+from tools.transaction import fetch_transactions
 
 
 def build_context(user_id: int, query: str):
