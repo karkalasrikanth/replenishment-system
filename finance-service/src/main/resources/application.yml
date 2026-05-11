@@ -18,7 +18,15 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: https://login.microsoftonline.com/3be72ede-1008-4e37-88c9-f0192dd1e339/v2.0
-
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      retries: 3
+      acks: all
+      properties:
+        enable.idempotence: true
 
 logging:
   level:
@@ -27,3 +35,4 @@ logging:
 
 server:
   port: 8080
+

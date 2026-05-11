@@ -1,10 +1,8 @@
 package com.fintrack.fin.transaction;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
 import java.time.YearMonth;
 
@@ -18,5 +16,11 @@ public class TransactionController {
     @GetMapping("/summary")
     public SummaryResponse summary(@RequestParam Long userId, @RequestParam int year, @RequestParam int month) {
         return transactionService.getSummary(userId, YearMonth.of(year, month));
+    }
+
+    @PostMapping
+    public ResponseEntity<String> createTransaction(@RequestBody TransactionDto transactionDto) {
+        transactionService.publishEvent(transactionDto);
+        return ResponseEntity.accepted().build();
     }
 }

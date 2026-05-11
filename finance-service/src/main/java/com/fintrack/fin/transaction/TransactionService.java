@@ -1,5 +1,6 @@
 package com.fintrack.fin.transaction;
 
+import com.fintrack.fin.out.EventProducer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -13,6 +14,7 @@ import java.util.List;
 public class TransactionService {
 
     private final TransactionRepository transactionRepository;
+    private final EventProducer eventProducer;
 
     public SummaryResponse getSummary(Long userId, YearMonth month) {
 
@@ -36,5 +38,9 @@ public class TransactionService {
         }
 
         return new SummaryResponse(income, expense);
+    }
+
+    public void publishEvent(TransactionDto transactionDto) {
+        eventProducer.publishEvent(transactionDto);
     }
 }
